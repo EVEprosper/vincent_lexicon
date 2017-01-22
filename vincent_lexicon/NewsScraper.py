@@ -1,5 +1,6 @@
 """A utility that pulls down news data for processing and grading"""
 
+from datetime import datetime
 from os import path
 import csv
 
@@ -9,6 +10,8 @@ import pandas_datareader.data as web
 from tinydb import TinyDB, Query
 import ujson as json
 from plumbum import cli
+from nltk import download as nltk_download
+import nltk.sentiment as sentiment
 
 import prosper.common.prosper_logging as p_logging
 import prosper.common.prosper_config as p_config
@@ -20,6 +23,32 @@ ME = 'NewsScraper'
 CONFIG = p_config.ProsperConfig(CONFIG_ABSPATH)
 LOGGER = p_logging.DEFAULT_LOGGER
 LOG_PATH = CONFIG.get('LOGGING', 'log_path')
+
+CALENDAR_CACHEFILE = path.join(HERE, CONFIG.get(ME, 'calendar_cachefile'))
+CALENDAR_CACHE = TinyDB(CALENDAR_CACHEFILE)
+MARKET_CALENDAR_ENDPOINT = CONFIG.get(ME, 'calendar_endpoint')
+TRADIER_KEY = CONFIG.get(ME, 'tradier_key')
+def market_open(
+        cache_buster=False,
+        calendar_cache=CALENDAR_CACHE,
+        endpoint=MARKET_CALENDAR_ENDPOINT,
+        auth_key=TRADIER_KEY
+):
+    """make sure the market is actually open today
+
+    Args:
+        cache_buster (bool, optional): ignore cache, DEFAULT: False
+        calendar_cache (:obj:`TinyDB`): cached version of market calendar
+        endpoint (str, optional): address for fetching open days calendar (tradier)
+        auth_key (str, optional): authentication for calendar endpoint
+
+    Returns:
+        (bool): is market open
+
+    """
+
+    return True
+
 def parse_stock_list(
         stock_list_path,
         column_keyname='Symbol'
@@ -56,6 +85,41 @@ def parse_stock_list(
     LOGGER.debug(ticker_list)
 
     return ticker_list
+
+NEWS_SOURCE = CONFIG.get(ME, 'articles_uri')
+def fetch_news_info(
+        ticker_list,
+        news_source=NEWS_SOURCE
+):
+    """Process ticker_list and save news endpoints
+
+    Args:
+        ticker_list (:obj:`list` str): list of tickers to fetch news feeds on
+        news_source (str, optional): endpoint to fetch data from (GOOGLE default)
+
+    Returns:
+        (:obj:`dict`): tinyDB-ready list of news info
+
+    """
+    pass
+
+QUOTE_SOURCE = CONFIG.get(ME, 'quote_source')#TODO: needed?
+def fetch_price(
+        stock_ticker,
+        quote_source=QUOTE_SOURCE #TODO: needed?
+):
+    """Get EOD price data for stock ticker
+
+    Args:
+        stock_ticker(str): stock ticker to query
+        quote_source(str, optional): quote resource
+
+    Returns:
+        (dict?) return from pandas-datareader
+
+    """
+    pass
+
 
 class NewsScraper(cli.Application):
     """Plumbum CLI application to fetch EOD data and news articles"""
@@ -97,6 +161,17 @@ class NewsScraper(cli.Application):
             self._log_builder.configure_discord_logger()
         LOGGER = self._log_builder.logger
         LOGGER.debug('Hello world')
+
+        if not nltk_download('vader_lexicon'):
+            LOGGER.error('unable to load vader_lexicon for text analysis')
+        else:
+            text_analyzer = sentiment.vader.SentimentIntensityAnalyzer()
+
+        if not market_open():
+            LOGGER.info('Markets not open today')
+            exit()
+
         ticker_list = parse_stock_list(self.stock_list)
+        news_feeds = fetch_news_info(ticker_list)
 if __name__ == '__main__':
     NewsScraper.run()
