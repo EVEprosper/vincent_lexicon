@@ -94,7 +94,8 @@ setup(
     ],
     package_data={
         'vincent_lexicon':[
-            'vincent_config.cfg'
+            'vincent_config.cfg',
+            'ticker_list.csv'
         ]
     },
     install_requires=[
