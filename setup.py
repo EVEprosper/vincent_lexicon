@@ -105,7 +105,8 @@ setup(
         'ujson>=1.35',
         'tinydb>=3.2.2',
         'nltk>=3.2.2',
-        'demjson>=2.2.4'
+        'demjson>=2.2.4',
+        'plumbum>=1.6.3'
     ],
     tests_require=[
         'pytest>=3.0.0',
