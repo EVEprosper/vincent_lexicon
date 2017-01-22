@@ -230,7 +230,8 @@ class NewsScraper(cli.Application):
 
         if not market_open():
             LOGGER.info('Markets not open today')
-            exit()
+            if not self.debug:  #keep running if debug
+                exit()
 
         ticker_list = parse_stock_list(self.stock_list)
         news_feeds = fetch_news_info(ticker_list)
