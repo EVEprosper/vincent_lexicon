@@ -26,16 +26,17 @@ LOG_PATH = CONFIG.get('LOGGING', 'log_path')
 
 CALENDAR_CACHEFILE = path.join(HERE, CONFIG.get(ME, 'calendar_cachefile'))
 CALENDAR_CACHE = TinyDB(CALENDAR_CACHEFILE)
-MARKET_CALENDAR_ENDPOINT = CONFIG.get(ME, 'calendar_endpoint')
 TRADIER_KEY = CONFIG.get(ME, 'tradier_key')
 def market_open(
         cache_buster=False,
         calendar_cache=CALENDAR_CACHE,
-        endpoint=MARKET_CALENDAR_ENDPOINT,
+        endpoint='https://api.tradier.com/v1/markets/calendar',
         auth_key=TRADIER_KEY
 ):
     """make sure the market is actually open today
 
+    Note:
+        uses https://developer.tradier.com/documentation/markets/get-calendar
     Args:
         cache_buster (bool, optional): ignore cache, DEFAULT: False
         calendar_cache (:obj:`TinyDB`): cached version of market calendar
