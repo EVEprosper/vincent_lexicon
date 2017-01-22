@@ -1,0 +1,14 @@
+demjson==2.2.4
+nltk==3.2.2
+numpy==1.12.0
+pandas==0.19.2
+pandas-datareader==0.3.0.post0
+ProsperCommon==0.3.4
+python-dateutil==2.6.0
+pytz==2016.10
+requests==2.11.1
+requests-file==1.4.1
+requests-ftp==0.3.1
+six==1.10.0
+tinydb==3.2.2
+ujson==1.35
