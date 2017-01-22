@@ -46,8 +46,69 @@ def market_open(
         (bool): is market open
 
     """
+    LOGGER.info('Checking if market is open')
+    today = datetime.today().strftime('%Y-%m-%d')
+    day_query = Query()
+    if not cache_buster:
+        value = calendar_cache.search(day_query.date == today)
+        LOGGER.debug(value)
+        if value:
+            if value[0]['status'] == 'closed':
+                LOGGER.info('Markets closed today')
+                calendar_cache.close()
+                return False
+            elif value[0]['status'] == 'open':
+                LOGGER.info('Markets open today')
+                calendar_cache.close()
+                return True
+            else:
+                LOGGER.error(
+                    'EXCEPTION: unexpected market status' +
+                    '\n\tvalue={0}'.format(value)
+                )
+                calendar_cache.close()
+                raise Exception #TODO make custom exception
 
-    return True
+    ## Fetch calendar from internet ##
+    headers = {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ' + auth_key
+    }
+    try:
+        req = requests.get(
+            endpoint,
+            headers=headers
+        )
+        calendar = req.json()
+    except Exception as err_msg:
+        LOGGER.error(
+            'EXCEPTION: unable to fetch calendar' +
+            '\n\turl={0}'.format(endpoint),
+            exc_info=True
+        )
+        calendar_cache.close()
+        raise err_msg #TODO: no calendar behavior?
+
+    ## update cache ##
+    calendar_cache.insert_multiple(calendar['calendar']['days']['day'])
+
+    value = calendar_cache.search(day_query.date == today)
+    LOGGER.debug(value)
+    if value[0]['status'] == 'closed':
+        LOGGER.info('Markets closed today')
+        calendar_cache.close()
+        return False
+    elif value[0]['status'] == 'open':
+        LOGGER.info('Markets open today')
+        calendar_cache.close()
+        return True
+    else:
+        LOGGER.error(
+            'EXCEPTION: unexpected market status' +
+            '\n\tvalue={0}'.format(value)
+        )
+        calendar_cache.close()
+        raise Exception #TODO make custom exception
 
 def parse_stock_list(
         stock_list_path,
