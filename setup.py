@@ -84,7 +84,7 @@ setup(
         'Programming Language :: Python :: 3.5'
     ],
     keywords='prosper eveonline api CREST',
-    packages=hack_find_packages('prosper'),
+    packages=find_packages(),
     include_package_data=True,
     data_files=[
         #Can't use data_files with gemfury upload (need `bdist_wheel`)
