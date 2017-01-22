@@ -4,7 +4,7 @@ numpy==1.12.0
 pandas==0.19.2
 pandas-datareader==0.3.0.post0
 plumbum==1.6.3
-ProsperCommon==0.3.4
+ProsperCommon==0.3.5a1
 python-dateutil==2.6.0
 pytz==2016.10
 requests==2.11.1

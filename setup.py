@@ -101,7 +101,7 @@ setup(
     install_requires=[
         'requests>=2.12.0',
         'pandas-datareader>=0.3.0',
-        'ProsperCommon>=0.3.4',
+        'ProsperCommon>=0.3.5a1',
         'ujson>=1.35',
         'tinydb>=3.2.2',
         'nltk>=3.2.2',
