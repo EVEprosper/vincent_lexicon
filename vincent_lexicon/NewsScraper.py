@@ -180,18 +180,17 @@ def fetch_news_info(
             empty_tickers.append(ticker)
         else:
             pass #TODO: attach data to big tinydb file
-#
-#
-#
-
-#[
-#   {
-#       "ticker": ticker,
-#       "data":{
-#
-#       }
-#   }
-#]
+            #{
+            #   "ticker": ticker,
+            #   "date": datetime.today()
+            #   "news":[
+            #       news_data
+            #   ]
+            #   "price":{
+            #       closing_price_data
+            #   }
+            #}
+            #so query goes db.find(query.ticker==ticker, order_by=date)
     if failed_tickers:
         LOGGER.error(
             'EXCEPTION FOUND: some tickers did not return news:' +
@@ -258,6 +257,7 @@ def fetch_news(
             else:
                 story_info['primary'] = False
 
+            #TODO: add vader_lexicon grading
             news_list.append(story_info)
 
     return news_list
