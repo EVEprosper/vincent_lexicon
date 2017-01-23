@@ -1,7 +1,7 @@
 """A utility that pulls down news data for processing and grading"""
 
 from datetime import datetime
-from os import path
+from os import path, makedirs
 import csv
 
 import requests
@@ -24,7 +24,10 @@ CONFIG = p_config.ProsperConfig(CONFIG_ABSPATH)
 LOGGER = p_logging.DEFAULT_LOGGER
 LOG_PATH = CONFIG.get('LOGGING', 'log_path')
 
-CALENDAR_CACHEFILE = path.join(HERE, CONFIG.get(ME, 'calendar_cachefile'))
+CACHE_PATH = path.join(HERE, CONFIG.get(ME, 'cache_path'))
+makedirs(CACHE_PATH, exist_ok=True)
+
+CALENDAR_CACHEFILE = path.join(CACHE_PATH, CONFIG.get(ME, 'calendar_cachefile'))
 CALENDAR_CACHE = TinyDB(CALENDAR_CACHEFILE)
 TRADIER_KEY = CONFIG.get(ME, 'tradier_key')
 def market_open(
@@ -148,22 +151,141 @@ def parse_stock_list(
 
     return ticker_list
 
-NEWS_SOURCE = CONFIG.get(ME, 'articles_uri')
 def fetch_news_info(
         ticker_list,
-        news_source=NEWS_SOURCE
 ):
     """Process ticker_list and save news endpoints
 
+    NOTE: Step1, needs to run as first step
     Args:
         ticker_list (:obj:`list` str): list of tickers to fetch news feeds on
-        news_source (str, optional): endpoint to fetch data from (GOOGLE default)
 
     Returns:
         (:obj:`dict`): tinyDB-ready list of news info
 
     """
-    pass
+    LOGGER.info('Fetching news items for tickers')
+    processed_data = {}
+    failed_tickers = []
+    empty_tickers = []
+    last_exception = None
+    for ticker in cli.terminal.Progress(ticker_list):
+        try:
+            news_data = fetch_news(ticker)
+        except Exception as err_msg:
+            failed_tickers.append(ticker)
+            last_exception = err_msg
+
+        if not news_data:
+            empty_tickers.append(ticker)
+        else:
+            pass #TODO: attach data to big tinydb file
+#
+#
+#
+
+#[
+#   {
+#       "ticker": ticker,
+#       "data":{
+#
+#       }
+#   }
+#]
+    if failed_tickers:
+        LOGGER.error(
+            'EXCEPTION FOUND: some tickers did not return news:' +
+            '\n\tSEE LOG FOR SPECIFIC ERRORS' +
+            '\n\tlast_exception={0}'.format(repr(last_exception)) +
+            '\n\ttickers={0}'.format(failed_tickers)
+        )
+
+NEWS_SOURCE = CONFIG.get(ME, 'articles_uri')
+def fetch_news(
+        ticker,
+        news_source=NEWS_SOURCE
+):
+    """Fetch individual ticker's news feed
+
+    Args:
+        ticker (str): stock ticker
+        news_source (str, optional): news API endpoint
+
+    Returns:
+        (:obj:`dict`) (adjusted) news JSON result
+
+    """
+    LOGGER.info('--Fetching news for ' + ticker)
+    params = {
+        'q': ticker,
+        'output': 'json'
+    }
+    try:
+        req = requests.get(
+            news_source,
+            params=params
+        )
+    except Exception as err_msg:
+        LOGGER.warning(
+            'EXCEPTION: unable to fetch news feed' +
+            '\n\texception={0}'.format(repr(err_msg)) +
+            '\n\turl={0}'.format(news_source) +
+            '\n\tticker={0}'.format(ticker),
+            exc_info=True
+        )
+        raise err_msg
+
+    try:
+        raw_articles = demjson.decode(req.text)
+    except Exception as err_msg:
+        LOGGER.debug(req.text)
+        LOGGER.warning(
+            'EXCEPTION: unable to parse news items' +
+            '\n\texception={0}'.format(repr(err_msg)) +
+            '\n\turl={0}'.format(news_source) +
+            '\n\tticker={0}'.format(ticker),
+            exc_info=True
+        )
+        raise err_msg
+    news_list = []
+    for block in raw_articles['clusters']:
+        if int(block['id']) == -1:
+            continue #last entry is weird
+        for indx, story in enumerate(block['a']):
+            story_info = process_story_info(story)
+            if indx==0: #TODO: validate "primary" story is always first
+                story_info['primary'] = True
+            else:
+                story_info['primary'] = False
+
+            news_list.append(story_info)
+
+    return news_list
+
+def process_story_info(story_info):
+    """crunch news into regular format
+
+    Args:
+        story_info (:obj:`dict`): news_feed['clusters'][block_index]['a'] contents
+
+    Returns:
+        (:obj:`dict`): processed article info
+
+    """
+    info = {}
+    info['source']   = story_info['s']
+    info['url']      = story_info['u']
+    info['title']    = story_info['t']
+    info['blurb']    = story_info['sp']
+    info['usg']      = story_info['usg'] #not sure if UUID is useful?
+    info['datetime'] = datetime.\
+        fromtimestamp(int(story_info['tt'])).\
+        strftime('%Y-%m-%d %H-%M-%S')
+
+    return info
+    #Unused keys:
+    #story_info['sru']  google reference link
+    #story_info['d']    human-readable "when published" info
 
 QUOTE_SOURCE = CONFIG.get(ME, 'quote_source')#TODO: needed?
 def fetch_price(
@@ -236,5 +358,6 @@ class NewsScraper(cli.Application):
 
         ticker_list = parse_stock_list(self.stock_list)
         news_feeds = fetch_news_info(ticker_list)
+
 if __name__ == '__main__':
     NewsScraper.run()

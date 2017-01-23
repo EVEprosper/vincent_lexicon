@@ -91,3 +91,4 @@ venv*/
 
 # Local Configs
 *_local.cfg
+tables/*.json
