@@ -401,9 +401,9 @@ class NewsScraper(cli.Application):
                 exit()
 
         ticker_list = parse_stock_list(self.stock_list)
-        logger.debug(ticker_list)
+        LOGGER.debug(ticker_list)
         news_feeds = fetch_news_info(ticker_list)
-        logger.debug(news_feeds)
+        LOGGER.debug(news_feeds)
 
 if __name__ == '__main__':
     NewsScraper.run()
