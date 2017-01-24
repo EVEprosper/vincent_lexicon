@@ -200,6 +200,7 @@ def fetch_news_info(
                 continue
             processed_data.append(data_entry)
 
+    LOGGER.info('empty_tickers={0}'.format(empty_tickers))
     if failed_tickers:
         LOGGER.error(
             'EXCEPTION FOUND: some tickers did not return news:' +
