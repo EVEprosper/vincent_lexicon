@@ -3,9 +3,26 @@
 from os import path, listdir
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
+import importlib
 
 HERE = path.abspath(path.dirname(__file__))
-__version__ = '0.0.1'
+
+def get_version(package_name):
+    """find __version__ for making package
+
+    Args:
+        package_path (str): path to _version.py folder (abspath > relpath)
+
+    Returns:
+        (str) __version__ value
+
+    """
+    module = package_name + '._version'
+    package = importlib.import_module(module)
+
+    version = package.__version__
+
+    return version
 
 def hack_find_packages(include_str):
     """patches setuptools.find_packages issue
@@ -56,7 +73,7 @@ class PyTest(TestCommand):
         TestCommand.initialize_options(self)
         self.pytest_args = [
             'Tests',
-            '--cov=vincent_lexicon/',
+            '--cov=' + __package_name__,
             '--cov-report=term-missing'
         ]    #load defaults here
 
@@ -72,18 +89,21 @@ class PyTest(TestCommand):
         errno = pytest.main(pytest_commands)
         exit(errno)
 
+__package_name__ = 'vincent_lexicon'
+__version__ = get_version(__package_name__)
+
 setup(
     name='vincent_lexicon',
     author='John Purcell',
     author_email='prospermarketshow@gmail.com',
-    url='https://github.com/EVEprosper/vincent_lexicon',
-    download_url='https://github.com/EVEprosper/vincent_lexicon/tarball/v' + __version__,
+    url='https://github.com/EVEprosper/' + __package_name__,
+    download_url='https://github.com/EVEprosper/' + __package_name__ + '/tarball/v' + __version__,
     version=__version__,
     license='MIT',
     classifiers=[
         'Programming Language :: Python :: 3.5'
     ],
-    keywords='prosper eveonline api CREST',
+    keywords='NLTK market lexicon library',
     packages=find_packages(),
     include_package_data=True,
     data_files=[
@@ -93,7 +113,7 @@ setup(
         ('Scripts', include_all_subfiles('Scripts'))
     ],
     package_data={
-        'vincent_lexicon':[
+        __package_name__:[
             'vincent_config.cfg',
             'ticker_list.csv'
         ]

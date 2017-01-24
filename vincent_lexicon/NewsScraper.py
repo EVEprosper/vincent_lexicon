@@ -1,7 +1,7 @@
 """A utility that pulls down news data for processing and grading"""
 
 from datetime import datetime
-from os import path, makedirs
+from os import path, makedirs, remove
 import csv
 
 import requests
@@ -14,6 +14,7 @@ from nltk import download as nltk_download
 import nltk.sentiment as sentiment
 from six.moves.html_parser import HTMLParser
 
+from _version import __version__
 import prosper.common.prosper_logging as p_logging
 import prosper.common.prosper_config as p_config
 
@@ -224,18 +225,19 @@ def build_data_entry(ticker, news_data):
     db_entry['ticker'] = ticker
     db_entry['datetime'] = datetime.today().strftime('%Y-%m-%d') #TODO: add H:M:S?
     db_entry['news'] = news_data
+    db_entry['version'] = __version__
     db_entry['price'] = {}
 
     ## Fetch price data ##
     price_df = web.get_quote_yahoo(ticker)
-    db_entry['price']['change_pct'] = float(price_df.change_pct.get_value(0).strip('%'))
-    db_entry['price']['close'] = float(price_df.last.get_value())
+    db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
+    db_entry['price']['close'] = float(price_df['last'].get_value(0))
     try:
-        db_entry['price']['PE'] = float(price_df.PE.get_value(0))
+        db_entry['price']['PE'] = float(price_df['PE'].get_value(0))
     except ValueError:
         db_entry['price']['PE'] = None
     try:
-        db_entry['price']['short_ratio'] = float(price_df.short_ratio.get_value(0))
+        db_entry['price']['short_ratio'] = float(price_df['short_ratio'].get_value(0))
     except ValueError:
         db_entry['price']['short_ratio'] = None
 
@@ -314,7 +316,7 @@ def process_story_info(story_info):
         (:obj:`dict`): processed article info
 
     """
-    LOGGER.debug('----Processing story_info for' + story_info['u'])
+    LOGGER.debug('----Processing story_info: ' + story_info['u'])
     parser = HTMLParser()   #http://stackoverflow.com/a/2087433
     info = {}
     info['source']   = story_info['s']
@@ -331,23 +333,36 @@ def process_story_info(story_info):
     #story_info['sru']  google reference link
     #story_info['d']    human-readable "when published" info
 
-QUOTE_SOURCE = CONFIG.get(ME, 'quote_source')#TODO: needed?
-def fetch_price(
-        stock_ticker,
-        quote_source=QUOTE_SOURCE #TODO: needed?
+def configure_database_connection(
+        table_name,
+        table_dir=CACHE_PATH,
+        debug=False
 ):
-    """Get EOD price data for stock ticker
+    """connects to database and returns usable handle
 
     Args:
-        stock_ticker(str): stock ticker to query
-        quote_source(str, optional): quote resource
+        table_name (str): path to tinyDB table (abspath > relpath)
+        debug (bool, optional): create/return "debug" table rather than prod
 
     Returns:
-        (dict?) return from pandas-datareader
+        (:obj:`tinydb.TinyDB`) usable handle for database operations
 
     """
-    pass
+    LOGGER.info('getting table connection: ' + table_name)
+    table_path = path.join(table_dir, table_name)
+    if not debug:
+        table_handle = TinyDB(table_path)
+    else:
+        LOGGER.info('--DEBUG MODE')
+        debug_path = path.join(table_dir, 'debug_' + table_name)
+        try: #remove previous debug version
+            LOGGER.debug('--removing old debug file: ' + debug_path)
+            remove(debug_path)
+        except FileNotFoundError:
+            pass
+        table_handle = TinyDB(debug_path)
 
+    return table_handle
 
 class NewsScraper(cli.Application):
     """Plumbum CLI application to fetch EOD data and news articles"""
@@ -400,10 +415,21 @@ class NewsScraper(cli.Application):
             if not self.debug:  #keep running if debug
                 exit()
 
+        ## Figure out tickers to query
         ticker_list = parse_stock_list(self.stock_list)
         LOGGER.debug(ticker_list)
+
+        ## Fetch news articles (and configure tinyDB schema)
         news_feeds = fetch_news_info(ticker_list)
         LOGGER.debug(news_feeds)
+
+
+        ## Last Step: write to database
+        news_database = configure_database_connection(
+            CONFIG.get(ME, 'news_database'),
+            debug=self.debug
+        )
+        news_database.insert_multiple(news_feeds)
 
 if __name__ == '__main__':
     NewsScraper.run()

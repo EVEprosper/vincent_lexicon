@@ -1,7 +1,7 @@
 # NewsScraper
 _Step 1 of data science: collect the data_
 
-Though [prosperbot](https://github.com/EVEprosper/ProsperUtilities) has shown some promise, [NLTK](http://www.nltk.org/)'s [vader_lexicon](http://www.nltk.org/api/nltk.sentiment.html#module-nltk.sentiment.vader) has its limits.  Specifically, VADER does not understand corp-speak.  
+Though [prosperbot](https://github.com/EVEprosper/ProsperUtilities) has shown some promise, [NLTK](http://www.nltk.org/)'s [vader_lexicon](http://www.nltk.org/api/nltk.sentiment.html#module-nltk.sentiment.vader) has its limits.  Specifically, VADER does not understand corp-speak.
 
 In an effort to remedy this, we need to build up a new lexicon that properly weighs corperate terms such as `bankrupcy` and `anti trust`, as well as more complex phrases like `hitting targets` or `missing projections`.  To meet this goal, we're pairing news from [Google's Finance API](https://www.google.com/finance/company_news) with [Yahoo's EOD feed](http://pandas-datareader.readthedocs.io/en/latest/remote_data.html?highlight=get_quote_yahoo#yahoo-finance-quotes) to get news + bulk-sentiment data together.
 
@@ -31,6 +31,7 @@ vincent_lexicon is built (for now) off [TinyDB](https://tinydb.readthedocs.io/en
   {
     "ticker": stock_ticker,
     "date": datetime.today(),
+    "version": __version__,
     "news":[
       {
         //individual stories from Google company_news endpoint
@@ -41,7 +42,7 @@ vincent_lexicon is built (for now) off [TinyDB](https://tinydb.readthedocs.io/en
         "datetime": story_publish_datetime
         "data":{
           "vader_scores":[positive_score, negative_score, composite],
-          "publish_timeskew": market_closedatetime - story_publish_datetime 
+          "publish_timeskew": market_closedatetime - story_publish_datetime
         },
         "primary": bool
       }
@@ -58,4 +59,4 @@ vincent_lexicon is built (for now) off [TinyDB](https://tinydb.readthedocs.io/en
 ```
 
 This schema is designed to be able to query by `ticker` and group_by `date`.
-        
+
