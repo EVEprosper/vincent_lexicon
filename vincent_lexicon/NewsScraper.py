@@ -504,7 +504,7 @@ class NewsScraper(cli.Application):
         ## Fetch news articles (and configure tinyDB schema)
         print('--Fetching news articles--')
         news_feeds = fetch_news_info(ticker_list)
-        LOGGER.debug(news_feeds)
+        #LOGGER.debug(news_feeds[0])
 
         print('--Running NLTK analysis--')
         if not nltk_download(NLTK_LIBRARIES):
