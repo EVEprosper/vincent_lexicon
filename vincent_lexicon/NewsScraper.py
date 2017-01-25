@@ -3,6 +3,7 @@
 from datetime import datetime
 from os import path, makedirs, remove
 import csv
+from enum import Enum
 
 import requests
 import demjson
@@ -10,14 +11,23 @@ import pandas_datareader.data as web
 from tinydb import TinyDB, Query
 import ujson as json
 from plumbum import cli
+from six.moves.html_parser import HTMLParser
+
 from nltk import download as nltk_download
 import nltk.sentiment as sentiment
-from six.moves.html_parser import HTMLParser
+from nltk.corpus import opinion_lexicon
+from nltk.tokenize import treebank
 
 from _version import __version__
 import prosper.common.prosper_logging as p_logging
 import prosper.common.prosper_config as p_config
 
+NLTK_LIBRARIES = [
+    'vader_lexicon',
+    'opinion_lexicon',
+    #'subjectivity',
+
+]
 HERE = path.abspath(path.dirname(__file__))
 CONFIG_ABSPATH = path.join(HERE, 'vincent_config.cfg')
 ME = 'NewsScraper'
@@ -306,6 +316,81 @@ def fetch_news(
             news_list.append(story_info)
 
     return news_list
+class Polarity(Enum):
+    POSITIVE = 'Positive'
+    NEGATIVE = 'Negative'
+    NEUTRAL = 'Neutral'
+
+def hacky_liu_hu(text):
+    """NLTK has demo_liu_hu_lexicon, but it doesn't return useful data
+
+    Note:
+        http://www.nltk.org/_modules/nltk/sentiment/util.html#demo_liu_hu_lexicon
+        NOT PERFORMANT :(
+    Args:
+        (str) text to analyze
+
+    Returns:
+        (:enum:`Polarity`) polarity score
+
+    """
+    tokenizer = treebank.TreebankWordTokenizer()
+    pos_words = 0
+    neg_words = 0
+    tokenized_sent = [word.lower() for word in tokenizer.tokenize(text)]
+
+    for word in tokenized_sent:
+        if word in opinion_lexicon.positive():
+            pos_words += 1
+        elif word in opinion_lexicon.negative():
+            neg_words += 1
+        #else: neutral not counted
+
+    if pos_words > neg_words:
+        return Polarity.POSITIVE
+    elif pos_words < neg_words:
+        return Polarity.NEGATIVE
+    elif pos_words == neg_words:
+        return Polarity.NEUTRAL
+    else:
+        LOGGER.error(
+            'EXCEPTION: Li Hiu escape' +
+            '\n\tpos_words={0}'.format(pos_words) +
+            '\n\tneg_words={0}'.format(neg_words)
+        )
+
+def score_articles(
+        news_feeds
+):
+    """walk through news feeds and apply first-pass NLTK values
+
+    Args:
+        news_feeds (:obj:`list`): TinyDB-ready list of news items
+
+    Returns:
+        (:obj:`list`) news_feeds with "data" segment filled in
+
+    """
+
+    text_analyzer = sentiment.vader.SentimentIntensityAnalyzer()
+
+    for ticker_element in cli.terminal.Progress(news_feeds):
+        LOGGER.info('Processing: ' + ticker_element['ticker'])
+        for article in ticker_element['news']:
+            title = article['title']
+            blurb = article['blurb']
+            data = {}
+            data['vader_title']  = text_analyzer.polarity_scores(title)
+            data['vader_blurb']  = text_analyzer.polarity_scores(blurb)
+            #data['li-hiu_title'] = hacky_liu_hu(title).value
+            #data['li-hiu_blurb'] = hacky_liu_hu(blurb).value
+
+            LOGGER.debug('\t{0}: {1}'.format(
+                '%+.3f' % data['vader_title']['compound'], title)
+            )
+            #TODO: convert demos from nltk.sentiment.utils to return data
+            article['data'] = data
+    return news_feeds
 
 def process_story_info(story_info):
     """crunch news into regular format
@@ -406,25 +491,26 @@ class NewsScraper(cli.Application):
         LOGGER = self._log_builder.logger
         LOGGER.debug('Hello world')
 
-        if not nltk_download('vader_lexicon'):
-            LOGGER.error('unable to load vader_lexicon for text analysis')
-        else:
-            text_analyzer = sentiment.vader.SentimentIntensityAnalyzer()
-
         if not market_open():
             LOGGER.info('Markets not open today')
             if not self.debug:  #keep running if debug
                 exit()
 
         ## Figure out tickers to query
+        print('--Fetching list of stocks--')
         ticker_list = parse_stock_list(self.stock_list)
         LOGGER.debug(ticker_list)
 
         ## Fetch news articles (and configure tinyDB schema)
+        print('--Fetching news articles--')
         news_feeds = fetch_news_info(ticker_list)
         LOGGER.debug(news_feeds)
 
-
+        print('--Running NLTK analysis--')
+        if not nltk_download(NLTK_LIBRARIES):
+            LOGGER.error('unable to load NLTK lexicons for text analysis')
+        else:
+            news_feeds = score_articles(news_feeds)
         ## Last Step: write to database
         news_database = configure_database_connection(
             CONFIG.get(ME, 'news_database'),
