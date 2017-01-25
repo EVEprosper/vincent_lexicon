@@ -499,7 +499,7 @@ class NewsScraper(cli.Application):
         ## Figure out tickers to query
         print('--Fetching list of stocks--')
         ticker_list = parse_stock_list(self.stock_list)
-        LOGGER.debug(ticker_list)
+        #LOGGER.debug(ticker_list)
 
         ## Fetch news articles (and configure tinyDB schema)
         print('--Fetching news articles--')
