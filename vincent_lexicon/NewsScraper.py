@@ -245,11 +245,18 @@ def build_data_entry(ticker, news_data):
     ## Fetch price data ##
     price_df = web.get_quote_yahoo(ticker)
     if price_df['last'].get_value(0) == 'N/A':   #retry fetch on google
+        LOGGER.info('----Parsing google data feed')
         price_df = web.get_quote_google(ticker)
+        db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0))
+        db_entry['price']['close'] = float(price_df['last'].get_value(0))
         db_entry['price']['PE'] = None
         db_entry['price']['short_ratio'] = None
+        db_entry['price']['source'] = 'Google'
         #google feed does not have PE/short_ratio
     else:
+        LOGGER.info('----Parsing yahoo data feed')
+        db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
+        db_entry['price']['close'] = float(price_df['last'].get_value(0))
         try:
             db_entry['price']['PE'] = float(price_df['PE'].get_value(0))
         except ValueError:
@@ -258,9 +265,8 @@ def build_data_entry(ticker, news_data):
             db_entry['price']['short_ratio'] = float(price_df['short_ratio'].get_value(0))
         except ValueError:
             db_entry['price']['short_ratio'] = None
+        db_entry['price']['source'] = 'Yahoo'
 
-    db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
-    db_entry['price']['close'] = float(price_df['last'].get_value(0))
     return db_entry
 
 
@@ -303,13 +309,21 @@ def fetch_news(
         raw_articles = demjson.decode(req.text)
     except Exception as err_msg:
         LOGGER.debug(req.text)
-        LOGGER.warning(
-            'EXCEPTION: unable to parse news items' +
-            '\n\texception={0}'.format(repr(err_msg)) +
-            '\n\turl={0}'.format(news_source) +
-            '\n\tticker={0}'.format(ticker),
-            exc_info=True
-        )
+        if str(err_msg) == 'Can not decode value starting with character \'<\'':
+            LOGGER.warning(
+                'WARNING: Empty news endpoint' +
+                '\n\texception={0}'.format(repr(err_msg)) +
+                '\n\turl={0}'.format(news_source) +
+                '\n\tticker={0}'.format(ticker)
+            )
+        else:   #do not store exc_info unless unexpected error
+            LOGGER.warning(
+                'EXCEPTION: unable to parse news items' +
+                '\n\texception={0}'.format(repr(err_msg)) +
+                '\n\turl={0}'.format(news_source) +
+                '\n\tticker={0}'.format(ticker),
+                exc_info=True
+            )
         raise err_msg
     news_list = []
     for block in raw_articles['clusters']:
