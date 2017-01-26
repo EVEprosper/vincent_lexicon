@@ -244,7 +244,7 @@ def build_data_entry(ticker, news_data):
 
     ## Fetch price data ##
     price_df = web.get_quote_yahoo(ticker)
-    if price_df['last'] == 'N/A':   #retry fetch on google
+    if price_df['last'].get_value(0) == 'N/A':   #retry fetch on google
         price_df = web.get_quote_google(ticker)
     db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
     db_entry['price']['close'] = float(price_df['last'].get_value(0))
