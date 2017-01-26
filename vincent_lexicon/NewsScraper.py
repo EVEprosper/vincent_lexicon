@@ -189,6 +189,9 @@ def fetch_news_info(
     for ticker in cli.terminal.Progress(ticker_list):
         try:
             news_data = fetch_news(ticker)
+        except demjson.JSONDecodeError:
+            empty_tickers.append(ticker) #blank news feed is HTML page
+            continue
         except Exception as err_msg:
             #LOGGER.warning('WARNING: unable to parse news for ' + ticker)
             failed_tickers.append(ticker)
@@ -241,6 +244,8 @@ def build_data_entry(ticker, news_data):
 
     ## Fetch price data ##
     price_df = web.get_quote_yahoo(ticker)
+    if price_df['last'] == 'N/A':   #retry fetch on google
+        price_df = web.get_quote_google(ticker)
     db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
     db_entry['price']['close'] = float(price_df['last'].get_value(0))
     try:
@@ -316,6 +321,7 @@ def fetch_news(
             news_list.append(story_info)
 
     return news_list
+
 class Polarity(Enum):
     POSITIVE = 'Positive'
     NEGATIVE = 'Negative'
