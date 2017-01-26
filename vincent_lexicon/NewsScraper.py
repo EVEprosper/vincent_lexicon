@@ -246,17 +246,21 @@ def build_data_entry(ticker, news_data):
     price_df = web.get_quote_yahoo(ticker)
     if price_df['last'].get_value(0) == 'N/A':   #retry fetch on google
         price_df = web.get_quote_google(ticker)
+        db_entry['price']['PE'] = None
+        db_entry['price']['short_ratio'] = None
+        #google feed does not have PE/short_ratio
+    else:
+        try:
+            db_entry['price']['PE'] = float(price_df['PE'].get_value(0))
+        except ValueError:
+            db_entry['price']['PE'] = None
+        try:
+            db_entry['price']['short_ratio'] = float(price_df['short_ratio'].get_value(0))
+        except ValueError:
+            db_entry['price']['short_ratio'] = None
+
     db_entry['price']['change_pct'] = float(price_df['change_pct'].get_value(0).strip('%'))
     db_entry['price']['close'] = float(price_df['last'].get_value(0))
-    try:
-        db_entry['price']['PE'] = float(price_df['PE'].get_value(0))
-    except ValueError:
-        db_entry['price']['PE'] = None
-    try:
-        db_entry['price']['short_ratio'] = float(price_df['short_ratio'].get_value(0))
-    except ValueError:
-        db_entry['price']['short_ratio'] = None
-
     return db_entry
 
 
