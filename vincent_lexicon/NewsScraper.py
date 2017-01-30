@@ -464,7 +464,8 @@ def configure_database_connection(
         table_handle = TinyDB(table_path)
     else:
         LOGGER.info('--DEBUG MODE')
-        debug_path = path.join(table_dir, 'debug_' + table_name)
+        today = datetime.today().strftime('%Y-%m-%d')
+        debug_path = path.join(table_dir, 'debug_' + table_name + '_' + today)
         try: #remove previous debug version
             LOGGER.debug('--removing old debug file: ' + debug_path)
             remove(debug_path)
