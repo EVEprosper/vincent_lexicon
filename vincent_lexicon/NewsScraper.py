@@ -436,7 +436,7 @@ def process_story_info(story_info):
     info['usg']      = story_info['usg'] #not sure if UUID is useful?
     info['datetime'] = datetime.\
         fromtimestamp(int(story_info['tt'])).\
-        strftime('%Y-%m-%d %H-%M-%S')
+        strftime('%Y-%m-%d %H:%M:%S')
 
     return info
     #Unused keys:
