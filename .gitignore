@@ -92,3 +92,7 @@ venv*/
 # Local Configs
 *_local.cfg
 tables/*.json
+
+# R Stuff
+.Rapp.history
+.Rhistory
