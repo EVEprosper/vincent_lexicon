@@ -72,6 +72,21 @@ def process_news_data(dataset):
             data_list.append(row)
     return data_list
 
+def csv_dump(rawdata, filepath):
+    """push data out to CSV for processing later
+
+    Args:
+        data (:obj:`list`): listified data for pandas
+        filepath (str): path to outfile
+
+    """
+    LOGGER.info('--dumping to file: ' + filepath)
+    data = pd.DataFrame(rawdata)
+    data.to_csv(
+        filepath,
+        index=False,
+    )
+
 class Tablefy(cli.Application):
     """Plumbum CLI application to help pre-process tinyDB data into more regular table shape"""
 
@@ -132,6 +147,17 @@ class Tablefy(cli.Application):
         crunched_news_data = process_news_data(db_file)
 
         LOGGER.info('writing summary tables')
+        price_csv_file = self.out_file.replace('.csv', '-price.csv')
+        csv_dump(
+            crunched_price_data,
+            price_csv_file
+        )
+
+        news_csv_file = self.out_file.replace('.csv', '-news.csv')
+        csv_dump(
+            crunched_news_data,
+            news_csv_file
+        )
 
 if __name__ == '__main__':
     Tablefy.run()
