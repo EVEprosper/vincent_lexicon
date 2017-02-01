@@ -41,6 +41,31 @@ def process_price_data(dataset):
         data_list.append(row)
     return data_list
 
+class UpOrDown(Enum):
+    POSITIVE = 'positive'
+    NEGATIVE = 'negative'
+    NEUTRAL = 'neutral'
+
+def check_price(data_entry, neutral_band=0.1):
+    """check price information and set UpOrDown Enum
+
+    Args:
+        data_entry(:obj:`dict`) single entry from tinyDB
+        neutral_band(float, optional): value to set "neutral" value
+    Returns:
+        (:enum:`UpOrDown`)
+
+    """
+    change_pct = data_entry['price']['change_pct']
+    if abs(change_pct) < neutral_band:
+        return UpOrDown.NEUTRAL
+    elif change_pct > 0:
+        return UpOrDown.POSITIVE
+    elif change_pct < 0:
+        return UpOrDown.NEGATIVE
+    else:
+        raise ValueError
+
 def process_news_data(dataset):
     """crunch down entries into more R-friendly shape
 
@@ -55,6 +80,13 @@ def process_news_data(dataset):
     data_list = []
     for key in cli.terminal.Progress(dataset['_default']):
         entry = dataset['_default'][key]    #Progress iterator only yields `key`
+        pre_list = []
+        best_article_title = 0
+        best_article_blurb = 0
+        best_article_title_index = None
+        best_article_blurb_index = None
+        direction = check_price(entry)
+        article_index = 0
         for article in entry['news']:
             row = {}
             row['ticker']   = entry['ticker']
@@ -69,7 +101,35 @@ def process_news_data(dataset):
             row['vader_blurb_neu']      = article['data']['vader_title']['neu']
             row['vader_blurb_pos']      = article['data']['vader_title']['pos']
             row['vader_blurb_compound'] = article['data']['vader_title']['compound']
-            data_list.append(row)
+            row['best_article_blurb'] = None
+            row['best_article_title'] = None
+            pre_list.append(row)
+
+            #This is dumb, but easy
+            if direction == UpOrDown.POSITIVE:
+                if row['vader_title_compound'] > best_article_title:
+                    best_article_title = row['vader_title_compound']
+                    best_article_title_index = article_index
+                if row['vader_blurb_compound'] > best_article_blurb:
+                    best_article_blurb = row['vader_blurb_compound']
+                    best_article_blurb_index = article_index
+            elif direction == UpOrDown.NEGATIVE:
+                if row['vader_title_compound'] < best_article_title:
+                    best_article_title = row['vader_title_compound']
+                    best_article_title_index = article_index
+                if row['vader_blurb_compound'] < best_article_blurb:
+                    best_article_blurb = row['vader_blurb_compound']
+                    best_article_blurb_index = article_index
+
+            article_index += 1
+
+        if best_article_title_index:
+            pre_list[best_article_title_index]['best_article_title'] = True
+
+        if best_article_blurb_index:
+            pre_list[best_article_title_index]['best_article_blurb'] = True
+
+        data_list.extend(pre_list)
     return data_list
 
 def csv_dump(rawdata, filepath):
