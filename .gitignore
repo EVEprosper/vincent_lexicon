@@ -96,3 +96,12 @@ tables/*.json
 # R Stuff
 .Rapp.history
 .Rhistory
+Scripts/logs
+Scripts/plots
+Scripts/*.csv
+
+# Special untrackable folders
+logs/
+tables/
+*.pickle
+vader_lexicon/

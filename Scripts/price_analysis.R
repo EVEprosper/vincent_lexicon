@@ -8,7 +8,8 @@ library(cowplot)
 here = dirname(rstudioapi::getActiveDocumentContext()$path)
 news.file = paste0(here, '/news_database_clean-news.csv')
 price.file = paste0(here, '/news_database_clean-price.csv')
-plot.filebase = paste0(here, '/', Sys.Date())
+dir.create(paste0(here, '/plots'), showWarnings=FALSE)
+plot.filebase = paste0(here, '/plots/', Sys.Date())
 dir.create(plot.filebase, showWarnings=FALSE)
 plot.width = 800
 plot.height= 450
@@ -23,7 +24,10 @@ comb = merge(
 
 comb$datetime <- as.Date(comb$datetime)
 date.max <- max(comb$datetime, na.rm=TRUE)
-
+comb$sign <- -1
+comb$sign[comb$change_pct > 0] <- 1
+comb$change_pct.log <- log(abs(comb$change_pct)) * comb$sign
+#comb$change_pct <- comb$change_pct.log
 ## PLOT: scatter vader-titles
 comb.plot.title <- subset(comb, vader_title_compound != 0)
 scatter.title <- ggplot(
