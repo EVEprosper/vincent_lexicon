@@ -28,9 +28,49 @@ def process_price_data(dataset):
         (:obj:`list`): patterned data ready for pandas
 
     """
+    LOGGER.info('--Processing price data from archive')
+    data_list = []
     for key in cli.terminal.Progress(dataset['_default']):
-        entry = dataset[key]    #Progress iterator only yields `key`
+        entry = dataset['_default'][key]    #Progress iterator only yields `key`
+        row = {}
+        row['ticker']       = entry['ticker']
+        row['datetime']     = entry['datetime']
+        row['change_pct']   = entry['price']['change_pct']
+        row['close']        = entry['price']['close']
+        row['price_source'] = entry['price']['source']
+        data_list.append(row)
+    return data_list
 
+def process_news_data(dataset):
+    """crunch down entries into more R-friendly shape
+
+    Args:
+        dataset (:obj:`dict`): json-parsed tinyDB file
+
+    Returns:
+        (:obj:`list`): patterned data ready for pandas
+
+    """
+    LOGGER.info('--Processing price data from archive')
+    data_list = []
+    for key in cli.terminal.Progress(dataset['_default']):
+        entry = dataset['_default'][key]    #Progress iterator only yields `key`
+        for article in entry['news']:
+            row = {}
+            row['ticker']   = entry['ticker']
+            row['datetime'] = entry['datetime']
+            row['source']   = article['source']
+            row['article_datetime'] = article['datetime']
+            row['vader_title_neg']      = article['data']['vader_title']['neg']
+            row['vader_title_neu']      = article['data']['vader_title']['neu']
+            row['vader_title_pos']      = article['data']['vader_title']['pos']
+            row['vader_title_compound'] = article['data']['vader_title']['compound']
+            row['vader_blurb_neg']      = article['data']['vader_title']['neg']
+            row['vader_blurb_neu']      = article['data']['vader_title']['neu']
+            row['vader_blurb_pos']      = article['data']['vader_title']['pos']
+            row['vader_blurb_compound'] = article['data']['vader_title']['compound']
+            data_list.append(row)
+    return data_list
 
 class Tablefy(cli.Application):
     """Plumbum CLI application to help pre-process tinyDB data into more regular table shape"""
@@ -82,11 +122,16 @@ class Tablefy(cli.Application):
         LOGGER.debug('hello world')
 
         #TODO: change to tinyDB handle?
+        LOGGER.info('loading table file: ' + self.table_file)
         db_file = None
         with open(self.table_file, 'r') as json_fh:
-            db_file = json.read(json_fh)
+            db_file = json.load(json_fh)
 
-        crunched_data = process_price_data(db_file)
+        LOGGER.info('processing table file')
+        crunched_price_data = process_price_data(db_file)
+        crunched_news_data = process_news_data(db_file)
+
+        LOGGER.info('writing summary tables')
 
 if __name__ == '__main__':
     Tablefy.run()
