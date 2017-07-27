@@ -143,6 +143,7 @@ def parse_stock_list(
 
     Returns:
         (:obj:`list` str): list of stock tickers
+        (:obj:`list` str): list of `META` tickers
 
     """
     #print('--Parsing stock list: ' + stock_list_path)
@@ -151,6 +152,7 @@ def parse_stock_list(
         raise FileNotFoundError(stock_list_path)
 
     ticker_list = []
+    meta_list = []
     with open(stock_list_path, 'r') as csv_file:
         try:
             stock_csv = csv.DictReader(csv_file)
@@ -161,22 +163,27 @@ def parse_stock_list(
                 exc_info=True
             )
             raise err_msg
-        for row in stock_csv:   #TODO: have to read each line?
+        for row in stock_csv:
             ticker_list.append(row[column_keyname])
+            if row['Exchange'] == 'META':
+                meta_list.append(row[column_keyname])
+
     LOGGER.info('Loaded tickers from file: x' + str(len(ticker_list)))
     LOGGER.debug(ticker_list)
+    LOGGER.debug(meta_list)
 
-    return ticker_list
+    return ticker_list, meta_list
 
 def fetch_news_info(
         ticker_list,
+        meta_list=[]
 ):
     """Process ticker_list and save news endpoints
 
     NOTE: Step1, needs to run as first step
     Args:
         ticker_list (:obj:`list` str): list of tickers to fetch news feeds on
-
+        meta_list (:obj:`list`, optional): special list of index tickers
     Returns:
         (:obj:`dict`): tinyDB-ready list of news info
 
@@ -188,7 +195,12 @@ def fetch_news_info(
     last_exception = None
     for ticker in cli.terminal.Progress(ticker_list):
         try:
-            news_data = fetch_news(ticker)
+            if ticker in meta_list:
+                news_data = fetch_news(
+                    ticker,
+                    news_source=CONFIG.get(ME, 'meta_articles_uri'))
+            else:
+                news_data = fetch_news(ticker)
         except demjson.JSONDecodeError:
             empty_tickers.append(ticker) #blank news feed is HTML page
             continue
@@ -202,7 +214,7 @@ def fetch_news_info(
             empty_tickers.append(ticker)
         else:
             try:
-                data_entry = build_data_entry(ticker, news_data)
+                data_entry = build_data_entry(ticker, news_data, ticker in meta_list)
             except Exception as err_msg:
                 LOGGER.warning(
                     'WARNING: unable to organize data for ' + ticker,
@@ -223,12 +235,13 @@ def fetch_news_info(
         )
     return processed_data
 
-def build_data_entry(ticker, news_data):
+def build_data_entry(ticker, news_data, meta_bool=False):
     """build the fundamental entry for tinyDB
 
     Args:
         ticker (str): company ticker
         news_data (:obj:`list`): collection of news data
+        meta_bool (bool, optional): if ticker is a META key
 
     Returns:
         (:obj:`dict`) tinyDB ready object
@@ -243,6 +256,16 @@ def build_data_entry(ticker, news_data):
     db_entry['price'] = {}
 
     ## Fetch price data ##
+    if meta_bool:
+        LOGGER.info('----Skipping price data - META')
+        db_entry['price']['change_pct'] = None
+        db_entry['price']['close'] = None
+        db_entry['price']['PE'] = None
+        db_entry['price']['short_ratio'] = None
+        db_entry['price']['source'] = None
+
+        return db_entry
+
     price_df = web.get_quote_yahoo(ticker)
     if price_df['last'].get_value(0) == 'N/A':   #retry fetch on google
         LOGGER.info('----Parsing google data feed')
@@ -523,12 +546,12 @@ class NewsScraper(cli.Application):
 
         ## Figure out tickers to query
         print('--Fetching list of stocks--')
-        ticker_list = parse_stock_list(self.stock_list)
+        ticker_list, meta_list = parse_stock_list(self.stock_list)
         #LOGGER.debug(ticker_list)
 
         ## Fetch news articles (and configure tinyDB schema)
         print('--Fetching news articles--')
-        news_feeds = fetch_news_info(ticker_list)
+        news_feeds = fetch_news_info(ticker_list, meta_list)
         #LOGGER.debug(news_feeds[0])
 
         print('--Running NLTK analysis--')

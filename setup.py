@@ -119,14 +119,14 @@ setup(
         ]
     },
     install_requires=[
-        'requests>=2.12.0',
-        'pandas-datareader>=0.3.0',
+        'requests~=2.18.2',
+        'pandas-datareader~=0.5.0',
         'ProsperCommon~=1.0.2',
-        'ujson>=1.35',
-        'tinydb>=3.2.2',
-        'nltk>=3.2.2',
-        'demjson>=2.2.4',
-        'plumbum>=1.6.3'
+        'ujson~=1.35',
+        'tinydb~=3.3.1',
+        'nltk~=3.2.2',
+        'demjson~=2.2.4',
+        'plumbum~=1.6.3'
     ],
     tests_require=[
         'pytest>=3.0.0',
